@@ -1,0 +1,33 @@
+/* Container Type */
+const CONTAINER_TYPE_UNDEFINED = 0x0000;
+const CONTAINER_TYPE_COMMAND = 0x0001;
+const CONTAINER_TYPE_DATA = 0x0002;
+const CONTAINER_TYPE_RESPONSE = 0x0003;
+const CONTAINER_TYPE_EVENT = 0x0004;
+
+/* Operation Codes */
+const OPEN_SESSION = 0x1002;
+const GET_STORAGE_IDS = 0x1004;
+const GET_STORAGE_INFO = 0x1005;
+const GET_OBJECT_HANDLES = 0x1007;
+const GET_OBJECT_INFO = 0x1008;
+const GET_OBJECT = 0x1009;
+const CLOSE_SESSION = 0x1003;
+const DELETE_OBJECT = 0x100B;
+const SEND_OBJECT_INFO = 0x100C;
+const SEND_OBJECT = 0x100D;
+
+/* Object formats */
+const OBJECT_FORMAT_TEXT = 0x3004;
+const GET_ROOT_OBJECTS = 0xFFFFFFFF;
+const UNDEFINED_OBJECT_FORMAT = 0x3000;
+
+/* Response codes */
+
+const MTP_OK = 0x2001;
+const SESSION_ALREADY_OPEN = 0x201E;
+
+
+/* Others */
+
+const FILE_NAME_START = 65;
