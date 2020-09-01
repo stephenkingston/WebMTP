@@ -7,18 +7,18 @@
 <body>
 <!--    File Upload or Download Popup -->
 <link rel="stylesheet" href="css/styles.css">
-<div id="myPopup" class="popup">
+<div id="transferPopup" class="popup">
     <div class="download-popup">
         <div class="popup-header">
             <span id="close">&times;</span>
-            <h3 id="process">Downloading...</h3>
+            <h3 id="popup-process">Downloading...</h3>
         </div>
         <div class="popup-body">
-            <h3 class="progress" id="process-percentage">45%</h3>
-            <p class="progress"><progress id="progress-bar" value="45" max="100"></progress></p>
+            <h3 class="progress" id="transfer-percentage">45%</h3>
+            <p class="progress"><progress id="progress-bar" value="0" max="100"></progress></p>
         </div>
         <div class="popup-footer" id="process-filename">
-            <p>File.txt</p>
+            <p></p>
         </div>
     </div>
 </div>
@@ -28,11 +28,11 @@
     <h1>WebMTP</h1>
     <div class="button-bounding-box">
         <div id="storage-info"></div>
-        <button id="conButton" class="button" onclick="MTPDeviceInit()"> Connect </button>
+        <button id="conButton" class="button" onclick="main()"> Connect </button>
         <button id="uploadButton" class="button" value="Choose Files!" onclick="document.getElementById('fileInput').click();"> Upload file </button>
         <input id="fileInput" type="file" style="display:none;" />
-        <div id="disconnectB"><button id="disconnectButton" class="button" onclick="downloadAsFile()"> Disconnect </button></div>
-        <div id="about" onclick="deleteFile()">&iukcy;</div>
+        <div id="disconnectB"><button id="disconnectButton" class="button" onclick="closeDevice()"> Disconnect </button></div>
+        <div id="about" onclick="downloadAsFile()">&iukcy;</div>
     </div>
 </div>
 
@@ -45,11 +45,9 @@
 </div>
 
 <!--   Javascript includes  -->
-<script type="text/javascript" src="js/common.js"></script>
-<script type="text/javascript" src="js/classes.js"></script>
-<script type="text/javascript" src="js/operations.js"></script>
+<script type="text/javascript" src="mtp/mtp_classes.js"></script>
+<script type="text/javascript" src="mtp/mtp_operations.js"></script>
 <script type="text/javascript" src="main.js"></script>
-
 
 <!--   About Popup  -->
 <div id="aboutPopup" class="popup about">

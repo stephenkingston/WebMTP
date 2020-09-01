@@ -1,5 +1,36 @@
-/* General Class definition for an MTP container */
+/* Container Type */
+const CONTAINER_TYPE_UNDEFINED = 0x0000;
+const MTP_CONTAINER_TYPE_COMMAND = 0x0001;
+const CONTAINER_TYPE_DATA = 0x0002;
+const CONTAINER_TYPE_RESPONSE = 0x0003;
+const CONTAINER_TYPE_EVENT = 0x0004;
 
+/* Operation Codes */
+const MTP_OPEN_SESSION = 0x1002;
+const MTP_GET_STORAGE_IDS = 0x1004;
+const MTP_GET_STORAGE_INFO = 0x1005;
+const GET_OBJECT_HANDLES = 0x1007;
+const GET_OBJECT_INFO = 0x1008;
+const GET_OBJECT = 0x1009;
+const CLOSE_SESSION = 0x1003;
+const MTP_DELETE_OBJECT = 0x100B;
+const SEND_OBJECT_INFO = 0x100C;
+const SEND_OBJECT = 0x100D;
+
+/* Object formats */
+const OBJECT_FORMAT_TEXT = 0x3004;
+const GET_ROOT_OBJECTS = 0xFFFFFFFF;
+const UNDEFINED_OBJECT_FORMAT = 0x3000;
+const PLACE_IN_ROOT = 0xFFFFFFFF;
+
+/* Response codes */
+const MTP_OK = 0x2001;
+const SESSION_ALREADY_OPEN = 0x201E;
+
+/* Others */
+const FILE_NAME_START = 65;
+
+/* General Class definition for an MTP container */
 class mtp_container
 {
     /* Parameter length in bytes */
@@ -149,13 +180,32 @@ class ObjectInfoDataset
         this.dateModArray = [0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0];
     }
 
-    setFileName(filename)
+    setFileName(filenameArray)
     {
-        this.fileName = bin2String(filename)
+        this.fileName = bin2String(filenameArray)
     }
 
-    initContainer(objectFormat, objectCompressedSize, associationType, associationDesc)
+    initContainer(objectFormat, objectCompressedSize, associationType, associationDesc, filename)
     {
+        /* File Name */
+        this.filename_array = new Uint8Array(filename.length * 2);
+        this.fileName = filename;
+        let j = 0;
+        for (let i = 0; j < filename.length; i+= 2)
+        {
+            if (i === 0)
+            {
+                this.filename_array[i] = filename.length;
+            }
+            else
+            {
+                this.filename_array[i] = 0;
+            }
+            this.filename_array[i+1] = (filename.charCodeAt(j));
+            j++;
+        }
+        console.log(this.filename_array);
+
         /* Object Format */
         for (let i = 4; i < 6; i++)
         {
@@ -297,8 +347,8 @@ class Device
 
         /* Open session */
         let openSession = new mtp_container(5);
-        openSession.setTransactionType(CONTAINER_TYPE_COMMAND);
-        openSession.setOperation(OPEN_SESSION);
+        openSession.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
+        openSession.setOperation(MTP_OPEN_SESSION);
         openSession.setTransactionID(0x01);
         openSession.setParams(0, 1, 0, 0 , 0);
         openSession.pack();
@@ -335,7 +385,7 @@ class Device
         /* Close session */
         let closeSessionRequest = new mtp_container(0);
         closeSessionRequest.setOperation(CLOSE_SESSION);
-        closeSessionRequest.setTransactionType(CONTAINER_TYPE_COMMAND);
+        closeSessionRequest.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
         closeSessionRequest.setTransactionID(0x06);
         closeSessionRequest.pack()
         MTPDevice.device.transferOut(MTPDevice.endpointOut, closeSessionRequest.container_array);
@@ -353,7 +403,7 @@ class Device
             let MTP_OKBuffer = null;
 
             results.then((receivedPackets) => {
-                if ((receivedPackets[0][7] << 8 | receivedPackets[0][6]) === GET_STORAGE_IDS)
+                if ((receivedPackets[0][7] << 8 | receivedPackets[0][6]) === MTP_GET_STORAGE_IDS)
                 {
                     storageIDBuffer = receivedPackets[0];
                     MTP_OKBuffer = receivedPackets[1];
@@ -391,8 +441,8 @@ class Device
 
         /* Get Storage IDS */
         let getStorageIDS = new mtp_container(0);
-        getStorageIDS.setTransactionType(CONTAINER_TYPE_COMMAND);
-        getStorageIDS.setOperation(GET_STORAGE_IDS);
+        getStorageIDS.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
+        getStorageIDS.setOperation(MTP_GET_STORAGE_IDS);
         getStorageIDS.setTransactionID(0x02);
         getStorageIDS.pack();
 
@@ -401,9 +451,58 @@ class Device
         return storageIDSPromise;
     }
 
+    getStorageInfo(MTPDevice, storageObject)
+    {
+        let results = this.receivePackets(MTPDevice, 2);
+
+        let storageInfoPromise = new Promise(function(resolve)
+        {
+            let storageInfoBuffer = null;
+            let MTP_OKBuffer = null;
+            results.then((receivedPackets) => {
+                if ((receivedPackets[0][7] << 8 | receivedPackets[0][6]) === MTP_GET_STORAGE_INFO)
+                {
+                    storageInfoBuffer = receivedPackets[0];
+                    MTP_OKBuffer = receivedPackets[1];
+                }
+                else
+                {
+                    storageInfoBuffer = receivedPackets[1];
+                    MTP_OKBuffer = receivedPackets[0];
+                }
+
+                if ((MTP_OKBuffer[7] << 8 | MTP_OKBuffer[6]) === MTP_OK)
+                {
+                    /* Handling MTP_OK & receiving storage Info */
+                    storageObject.initDatasetFromMTPContainer(storageInfoBuffer);
+                    console.log(storageObject);
+                    resolve(true);
+                }
+                else
+                {
+                    throw("Unhandled exception when fetching storage info.");
+                }
+            })
+                .catch((err) => {
+                    console.log("Error getting storage IDs. " + err)
+                    resolve(false);
+                });
+        })
+
+        let reqStorageInfo = new mtp_container(1);
+        reqStorageInfo.setTransactionID(0x09);
+        reqStorageInfo.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
+        reqStorageInfo.setOperation(MTP_GET_STORAGE_INFO);
+        reqStorageInfo.setParams(storageObject.storageID, 0, 0, 0, 0);
+        reqStorageInfo.pack();
+
+        MTPDevice.device.transferOut(MTPDevice.endpointOut, reqStorageInfo.container_array);
+        return storageInfoPromise;
+    }
 
     getFileObjects(MTPDevice, storageObject)
     {
+        console.log(storageObject.storageID);
         let results = this.receivePackets(MTPDevice, 2);
 
         let objectIDSPromise = new Promise(function(resolve)
@@ -428,8 +527,7 @@ class Device
                 if ((MTP_OKBuffer[7] << 8 | MTP_OKBuffer[6]) === MTP_OK)
                 {
                     /* Handling MTP_OK & receiving storage IDS */
-
-                    MTPDevice.objectInfoObjects = new Array(0);
+                    MTPDevice.storageInfoObjects[storageIDIndex].objectInfoObjects = new Array(0);
                     let numberOfObjectIDS = objectIDBuffer[12] | (objectIDBuffer[13] << 8) | (objectIDBuffer[14] << 16) | (objectIDBuffer [15] << 24);
                     let readBase = 16;
                     for (let i = 0; i < numberOfObjectIDS; i++)
@@ -453,7 +551,7 @@ class Device
         /* Get Storage IDS */
         let reqObjHandles = new mtp_container(3);
         reqObjHandles.setTransactionID(0x02);
-        reqObjHandles.setTransactionType(CONTAINER_TYPE_COMMAND);
+        reqObjHandles.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
         reqObjHandles.setOperation(GET_OBJECT_HANDLES);
         reqObjHandles.setParams(storageObject, 0, GET_ROOT_OBJECTS,0, 0);
         reqObjHandles.pack();
@@ -517,7 +615,7 @@ class Device
 
         /* Get ObjectInfo of all received handles */
         let getObjInfo = new mtp_container(1);
-        getObjInfo.setTransactionType(CONTAINER_TYPE_COMMAND);
+        getObjInfo.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
         getObjInfo.setOperation(GET_OBJECT_INFO);
         getObjInfo.setTransactionID(0x03);
         getObjInfo.setParams(fileObject.fileID, 0, 0, 0 , 0);
@@ -528,7 +626,7 @@ class Device
         return objectInfoPromise;
     }
 
-    downloadFile(MTPDevice, storageObject, fileObject)
+    downloadFile(MTPDevice, storageObject, fileObject, progressBar)
     {
         let results = MTPDevice.receivePackets(MTPDevice, 1);
         let downloadPromise = new Promise(function(resolve)
@@ -538,7 +636,7 @@ class Device
             let fileBlob = null;
             let objectBuffer = new Array(0);
 
-            results.then((receivedPackets) => {
+            results.then(async (receivedPackets) => {
                 firstObjectBuffer = receivedPackets[0];
 
                 if ((firstObjectBuffer[7] << 8 | firstObjectBuffer[6]) === GET_OBJECT)
@@ -547,17 +645,16 @@ class Device
                     objectBuffer.push.apply(objectBuffer, firstObjectBuffer.slice(12, firstObjectBuffer.length));
 
                     let numberOfPacketsToBeReceived = Math.ceil((fileLength - objectBuffer.length)/512);
-                    let restOfFilePromise = MTPDevice.receivePackets(MTPDevice, numberOfPacketsToBeReceived);
-                    restOfFilePromise.then((restOfFile) =>
+                    let range = Array.from(Array(numberOfPacketsToBeReceived).keys());
+                    for (const i of range)
                     {
-                        restOfFile.forEach((element) => {
-                            objectBuffer.push.apply(objectBuffer, element);
-                            console.log(objectBuffer);
+                        await MTPDevice.device.transferIn(MTPDevice.endpointIn, 512).then((result)=>{
+                            let data = new Uint8Array(result.data.buffer);
+                            objectBuffer.push.apply(objectBuffer, data);
+                            progressBar.value = ((i/numberOfPacketsToBeReceived) * 100).toFixed(1);
                         })
-                        let file_ = Uint8Array.from(objectBuffer);
-                        fileBlob = new Blob([file_]);
-                        resolve([true, fileBlob]);
-                    })
+                    }
+                    resolve([true, objectBuffer]);
                 }
                 else
                 {
@@ -573,7 +670,7 @@ class Device
         /* Get ObjectInfo of all received handles */
         let reqObj = new mtp_container(1);
         reqObj.setTransactionID(0x04);
-        reqObj.setTransactionType(CONTAINER_TYPE_COMMAND);
+        reqObj.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
         reqObj.setOperation(GET_OBJECT);
         reqObj.setParams(fileObject.fileID, 0, 0, 0, 0);
         reqObj.pack()
@@ -585,17 +682,19 @@ class Device
 
     deleteFile(MTPDevice, storageObject, fileObject)
     {
+        let result = MTPDevice.receivePackets(MTPDevice, 1);
+
         let storageIndex = MTPDevice.storageInfoObjects.indexOf(storageObject);
         let fileIndex = MTPDevice.storageInfoObjects[storageIndex].objectInfoObjects.indexOf(fileObject);
+
         let deletePromise = new Promise(function(resolve)
         {
-            let result = MTPDevice.receivePackets(1);
             console.log(result);
             result.then((receivedPacket) => {
+                resolve(true);
                 console.log(receivedPacket);
                 if ((receivedPacket[0][7] << 8 | receivedPacket[0][6]) === MTP_OK)
                 {
-                    MTPDevice.getFileObjects(MTPDevice, storageObject);
                     resolve("true");
                 }
                 else
@@ -609,13 +708,128 @@ class Device
 
         let delete_packet = new mtp_container(1);
         delete_packet.setTransactionID(0x07);
-        delete_packet.setOperation(DELETE_OBJECT);
-        delete_packet.setTransactionType(CONTAINER_TYPE_COMMAND);
+        delete_packet.setOperation(MTP_DELETE_OBJECT);
+        delete_packet.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
         delete_packet.setParams(MTPDevice.storageInfoObjects[storageIndex].objectInfoObjects[fileIndex].fileID, 0, 0, 0, 0);
         delete_packet.pack();
         MTPDevice.device.transferOut(MTPDevice.endpointOut, delete_packet.container_array);
 
         return deletePromise;
+    }
+
+    uploadFileInfo(MTPDevice, storageObject, filename, fileSize)
+    {
+        let result = MTPDevice.receivePackets(MTPDevice, 1);
+
+        let uploadFileInfoPromise = new Promise(function(resolve)
+        {
+            console.log(result);
+            result.then((receivedPacket) => {
+                console.log(receivedPacket);
+                if ((receivedPacket[0][7] << 8 | receivedPacket[0][6]) === MTP_OK)
+                {
+                    let newObjectID = 0;
+                    for (let i = 20; i < 24; i++)
+                    {
+                        newObjectID |= (receivedPacket[0][i] >> (i-20) * 8) & 0xFF;
+                    }
+                    resolve([true, newObjectID]);
+                }
+                else
+                    {
+                        throw("File Info upload unsuccessful!");
+                    }
+                });
+            }).catch((err) => {
+                console.log(err);
+            });
+        let sendObjInfo = new mtp_container(2);
+        sendObjInfo.setOperation(SEND_OBJECT_INFO);
+        sendObjInfo.setTransactionID(0x08);
+        sendObjInfo.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
+        sendObjInfo.setParams(storageObject.storageID, PLACE_IN_ROOT, 0, 0, 0);
+        sendObjInfo.pack();
+        MTPDevice.device.transferOut(MTPDevice.endpointOut, sendObjInfo.container_array);
+
+        let fileInfo = new ObjectInfoDataset(0x01);
+        fileInfo.initContainer(UNDEFINED_OBJECT_FORMAT, fileSize, 0, 0, filename);
+
+        let sendObjInfo2 = new mtp_container(0);
+        sendObjInfo2.setOperation(SEND_OBJECT_INFO);
+        sendObjInfo2.setTransactionID(0x08);
+        sendObjInfo2.setParams(0, 0, 0, 0, 0);
+        sendObjInfo2.setTransactionType(CONTAINER_TYPE_DATA);
+        sendObjInfo2.containerArrayLength = 12 + fileInfo.container_array.length + fileInfo.filename_array.length + fileInfo.dateModArray.length;
+        sendObjInfo2.pack();
+
+        MTPDevice.device.transferOut(MTPDevice.endpointOut, new Uint8Array([...sendObjInfo2.container_array, ...fileInfo.container_array, ...fileInfo.filename_array, ...fileInfo.dateModArray]));
+        return uploadFileInfoPromise;
+    }
+
+    async uploadFile(MTPDevice, storageObject, newObjectID, fileBytes, progressBar)
+    {
+        let result = MTPDevice.receivePackets(MTPDevice, 1);
+
+        let uploadFilePromise = new Promise(function(resolve)
+        {
+            result.then((receivedPacket) => {
+                resolve(true);
+                console.log(receivedPacket);
+                if ((receivedPacket[0][7] << 8 | receivedPacket[0][6]) === MTP_OK)
+                {
+                    resolve(true);
+                }
+                else
+                {
+                    throw("File upload unsuccessful!");
+                }
+            }).catch((err) => {
+                console.log(err);
+            })
+        })
+
+        let reqSendObject = new mtp_container(0);
+        reqSendObject.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
+        reqSendObject.setTransactionID(0x10);
+        reqSendObject.setOperation(SEND_OBJECT);
+        reqSendObject.setParams(0, 0, 0, 0, 0);
+        reqSendObject.pack();
+        MTPDevice.device.transferOut(MTPDevice.endpointOut, reqSendObject.container_array);
+
+        reqSendObject.setTransactionType(CONTAINER_TYPE_DATA);
+        reqSendObject.containerArrayLength = fileBytes.length + 12;
+        reqSendObject.pack();
+
+        let end = 0;
+        let i = 0;
+
+        while (i < fileBytes.length)
+        {
+            if ((i + 512) > fileBytes.length) {
+                end = fileBytes.length;
+            } else {
+                end = i + 512;
+                if (i === 0)
+                {
+                    end = i + 500;
+                }
+            }
+            let sliced = fileBytes.slice(i, end);
+            console.log(i, end, sliced);
+            if (i === 0)
+            {
+                await MTPDevice.device.transferOut(MTPDevice.endpointOut, new Uint8Array([...reqSendObject.container_array, ...sliced]));
+            }
+            else
+            {
+                await MTPDevice.device.transferOut(MTPDevice.endpointOut, sliced);
+            }
+            i = end;
+
+            /* Update progress bar */
+            progressBar.value = (end / fileBytes.length) * 100;
+         }
+        return uploadFilePromise;
     }
 }
 
@@ -628,4 +842,3 @@ function bin2String(array)
     }
     return result;
 }
-

@@ -316,6 +316,7 @@ body
     top: 20vh;
     horiz-align: center;
     left: 30vw;
+    display: none;
 }
 
 .about-popup {

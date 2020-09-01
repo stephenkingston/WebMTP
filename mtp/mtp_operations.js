@@ -1,4 +1,4 @@
-/* This file contains high-level functions derived from classes.js */
+/* This library file contains high-level functions derived from mtp_classes.mtp */
 let device = null;
 
 /* MTPDeviceInit() initializes the device and get a snapshot of all storage's and file objects in them */
@@ -12,16 +12,6 @@ async function MTPDeviceInit()
         if (status === true)
         {
             console.log("MTP device initialized successfully.");
-
-            let storageObjects = await getStorageIDS(device);
-            console.log(storageObjects);
-
-            let fileObjects = null;
-            for (const storage of storageObjects)
-            {
-                fileObjects = await getFileObjects(device, storage)
-            }
-            console.log(fileObjects);
             return device;
         }
     }
@@ -32,8 +22,7 @@ async function MTPDeviceInit()
     }
 }
 
-
-async function downloadFile(MTPDevice, storageID, fileID)
+async function downloadFile(MTPDevice, storageID, fileID, progressBar)
 {
     let storageObject = MTPDevice.storageInfoObjects.find(storageObject => storageObject.storageID === storageID);
     let storageIndex = MTPDevice.storageInfoObjects.indexOf(storageObject);
@@ -41,7 +30,7 @@ async function downloadFile(MTPDevice, storageID, fileID)
 
     try
     {
-        let [status, fileBlob] = await MTPDevice.downloadFile(MTPDevice, storageObject, fileObject);
+        let [status, fileBlob] = await MTPDevice.downloadFile(MTPDevice, storageObject, fileObject, progressBar);
 
         if (status === true)
         {
@@ -60,10 +49,11 @@ async function disconnect(MTPDevice)
     try
     {
         let status = await MTPDevice.closeSession(MTPDevice);
+        await MTPDevice.device.close();
 
         if (status === true)
         {
-            console.log("MTP device session closed successfully.");
+            console.log("Device session closed successfully.");
         }
     }
     catch(err)
@@ -76,8 +66,14 @@ async function getStorageIDS(MTPDevice)
 {
     try
     {
-        let status = await MTPDevice.getStorageIDS(MTPDevice);
-        if (status === true)
+        let status1 = await MTPDevice.getStorageIDS(MTPDevice);
+        let status2 = null;
+        for (const storageObject of MTPDevice.storageInfoObjects)
+        {
+            status2 = await MTPDevice.getStorageInfo(MTPDevice, storageObject);
+        }
+
+        if (status1 === true && status2 === true)
         {
             console.log("Fetched storage IDS. Found " + MTPDevice.storageInfoObjects.length + ".");
             return MTPDevice.storageInfoObjects;
@@ -90,23 +86,24 @@ async function getStorageIDS(MTPDevice)
     }
 }
 
-async function getFileObjects(MTPDevice, storageObject)
+async function getFileObjects(MTPDevice, storageID)
 {
     try
     {
-        let storageIDIndex = MTPDevice.storageInfoObjects.indexOf(storageObject);
+        let storageObject = MTPDevice.storageInfoObjects.find((storageObject) => {return storageObject.storageID === storageID});
+        let storageObjectIndex = MTPDevice.storageInfoObjects.indexOf(storageObject);
         let status1 = await MTPDevice.getFileObjects(MTPDevice, storageObject);
         let status2 = null;
 
-        for (const fileObject of MTPDevice.storageInfoObjects[storageIDIndex].objectInfoObjects)
+        for (const fileObject of MTPDevice.storageInfoObjects[storageObjectIndex].objectInfoObjects)
         {
             status2 = await MTPDevice.getFileObjectInfo(MTPDevice, storageObject, fileObject);
         }
 
         if (status1 === true && status2 === true)
         {
-            console.log("Fetched file objects. Found " + MTPDevice.storageInfoObjects[storageIDIndex].objectInfoObjects.length + ".");
-            return MTPDevice.storageInfoObjects[storageIDIndex].objectInfoObjects;
+            console.log("Fetched file objects. Found " + MTPDevice.storageInfoObjects[storageObjectIndex].objectInfoObjects.length + ".");
+            return MTPDevice.storageInfoObjects[storageObjectIndex].objectInfoObjects;
         }
     }
     catch(err)
@@ -123,7 +120,6 @@ async function deleteObject(MTPDevice, storageID, fileID)
         let storageObject = MTPDevice.storageInfoObjects.find(storageObject => storageObject.storageID === storageID);
         let storageIndex = MTPDevice.storageInfoObjects.indexOf(storageObject);
         let fileObject = MTPDevice.storageInfoObjects[storageIndex].objectInfoObjects.find(fileObject => fileObject.fileID === fileID);
-
         let status = await MTPDevice.deleteFile(MTPDevice, storageObject, fileObject);
 
         if(status === true)
@@ -134,6 +130,29 @@ async function deleteObject(MTPDevice, storageID, fileID)
     catch(err)
     {
         console.log("Unable to delete the selected file. " + err);
+        return null;
+    }
+}
+
+async function uploadFile(MTPDevice, storageID, file, bytes, progressBar)
+{
+    try
+    {
+        let storageObject = MTPDevice.storageInfoObjects.find(storageObject => storageObject.storageID === storageID);
+        console.log(storageObject);
+        let [status1, newObjectID] = await MTPDevice.uploadFileInfo(MTPDevice, storageObject, file.name, bytes.length);
+
+        let status2 = await MTPDevice.uploadFile(MTPDevice, storageObject, newObjectID, bytes, progressBar);
+        console.log(status1, status2, newObjectID);
+
+        if(status1 === true && status2 === true)
+        {
+            console.log("Successfully uploaded the file.");
+        }
+    }
+    catch(err)
+    {
+        console.log("Error uploading file. " + err);
         return null;
     }
 }
