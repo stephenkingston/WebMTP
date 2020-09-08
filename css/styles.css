@@ -46,7 +46,7 @@ body
 }
 
 .file-manager {
-    height: 100%;
+    height: calc(100% - 70px);
     background: azure;
     position: fixed;
     top:70px;
@@ -291,7 +291,6 @@ body
     .fileSize{
         display: none
     }
-
 }
 
 #about {

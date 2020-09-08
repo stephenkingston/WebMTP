@@ -17,14 +17,10 @@ let activeStorageID = 0;
 async function main()
 {
     let mtpDevice = await MTPDeviceInit();
-    let fileObjects = null;
 
     let storageObjects = await getStorageIDS(mtpDevice);
-    console.log(storageObjects);
-
     activeStorageID = storageObjects[0].storageID;
-    fileObjects = await getFileObjects(mtpDevice, activeStorageID)
-    console.log(fileObjects);
+    let fileObjects = await getFileObjects(mtpDevice, activeStorageID)
 
     refreshUI(fileObjects, storageObjects[0]);
 }
@@ -43,15 +39,21 @@ async function downloadAsFile()
     transferPopupHeading.innerText = "Downloading";
 
     /* Fetch file from MTP Device */
-    let fileArray = await downloadFile(device, 1, 2, progressBar);
+    let fileArray = await downloadFile(device, activeStorageID, activeFileID, progressBar);
+    console.log(typeof(fileArray));
     let file_ = Uint8Array.from(fileArray);
     let fileBlob = new Blob([file_]);
 
     /* Creating URL for file object and initiating download */
     let url = window.URL.createObjectURL(fileBlob);
     const file_element = document.createElement("a");
+
+    let storageObject = device.storageInfoObjects.find(storageObject => storageObject.storageID === activeStorageID);
+    let storageIndex = device.storageInfoObjects.indexOf(storageObject);
+    let fileObject = device.storageInfoObjects[storageIndex].objectInfoObjects.find(fileObject => fileObject.fileID === activeFileID);
+
     file_element.href = url;
-    let filename = "README.txt";
+    let filename = fileObject.fileName;
     file_element.download = filename.split("\n")[0];
     file_element.click();
 
@@ -68,8 +70,14 @@ async function openAsText()
     transferPopupHeading.innerText = "Downloading";
 
     let fileArray = await downloadFile(device, activeStorageID, activeFileID, progressBar);
-    document.getElementById("text-area").value = bin2String(fileArray);
+    let file_ = Uint8Array.from(fileArray);
+
+    document.getElementById("text-area").value = bin2String(file_);
     document.getElementById("transferPopup").style.display = "none";
+
+    let storageObject = device.storageInfoObjects.find(storageObject => storageObject.storageID === activeStorageID);
+    let storageIndex = device.storageInfoObjects.indexOf(storageObject);
+    let fileObject = device.storageInfoObjects[storageIndex].objectInfoObjects.find(fileObject => fileObject.fileID === activeFileID);
 
     /* Enable the user to press the close button for the popup */
     transferPopupClose.style.display = "block";
@@ -79,7 +87,11 @@ async function openAsText()
 async function deleteFile()
 {
     await deleteObject(device, activeStorageID, activeFileID);
-    await getFileObjects(device, activeStorageID);
+
+    let storageObjects = await getStorageIDS(device);
+    let fileObjects = await getFileObjects(device, activeStorageID);
+
+    refreshUI(fileObjects, storageObjects);
 }
 
 async function closeDevice()
@@ -100,13 +112,18 @@ inputElement.oninput = function (event)
         {
             let arrayBuffer = reader.result;
             let bytes = new Uint8Array(arrayBuffer);
-            uploadFile(device, 1, file, bytes, progressBar).then(() => {});
+            uploadFile(device, activeStorageID, file, bytes, progressBar).then(async () => {
+                let storageObjects = await getStorageIDS(device);
+                let fileObjects = await getFileObjects(device, activeStorageID);
+                refreshUI(fileObjects, storageObjects[0]);
+            });
         }
     }
 }
 
 function addFilesToUI(fileObjects)
 {
+    fileManager.innerHTML = "";
     for (let fileObject of fileObjects)
     {
         /* Create HTML elements to display File, File Size and context menu. */
@@ -114,15 +131,16 @@ function addFilesToUI(fileObjects)
         let fileSizeElement = document.createElement("div");
         let contextMenu = document.createElement("div");
 
-        fileManager.appendChild(fileElement);
-        fileManager.appendChild(contextMenu);
-        fileManager.appendChild(fileSizeElement);
-
-        fileElement.innerHTML = fileObject.fileName;
+        fileElement.innerText = fileObject.fileName;
         contextMenu.innerHTML = '<div class="context-menu"> <div class="item"> <i class="fa fa-download"></i> Download </div> <div class="item"> <i class="fa fa-folder-open"></i> Open as text.. </div> <div class="item"> <i class="fa fa-trash-o"></i> Delete </div> </div>';
+
+        fileManager.appendChild(fileElement);
+        fileElement.appendChild(contextMenu);
+        fileElement.appendChild(fileSizeElement);
 
         contextMenu.id = 'context-menu-' + fileObject.fileID.toString();
         fileElement.id = fileObject.fileID.toString();
+        fileSizeElement.className = "fileSize";
 
         fileElement.className = "file";
         activeFileID = fileObject.fileID;
@@ -176,6 +194,20 @@ function addFilesToUI(fileObjects)
             }
             contextElement.classList.add("active");
         });
+
+        /* Add file size */
+        if (fileObject.filesize < 1024)
+        {
+            fileSizeElement.innerText = fileObject.filesize + " bytes";
+        }
+        else if (fileObject.filesize < 1048576)
+        {
+            fileSizeElement.innerText = (fileObject.filesize/1024).toFixed(2) + " KB";
+        }
+        else
+        {
+            fileSizeElement.innerText = (fileObject.filesize/1048576).toFixed(2) + " MB";
+        }
     }
 }
 

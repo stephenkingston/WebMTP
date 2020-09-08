@@ -4,11 +4,21 @@ let device = null;
 /* MTPDeviceInit() initializes the device and get a snapshot of all storage's and file objects in them */
 async function MTPDeviceInit()
 {
-    device = new Device();
+    device = new MTPDevice();
+    let status = null;
     try
     {
-        await device.connectDevice(device);
-        let status = await device.openSession(device);
+        let success = await device.getEndpoints();
+        let connected = false;
+        if (success)
+        {
+            connected = await device.connectDevice(device);
+        }
+        if (connected)
+        {
+            status = await device.openSession(device);
+        }
+
         if (status === true)
         {
             console.log("MTP device initialized successfully.");
@@ -41,6 +51,7 @@ async function downloadFile(MTPDevice, storageID, fileID, progressBar)
     catch(err)
     {
         console.log("Error downloading file. " + err);
+        return null;
     }
 }
 
@@ -120,6 +131,7 @@ async function deleteObject(MTPDevice, storageID, fileID)
         let storageObject = MTPDevice.storageInfoObjects.find(storageObject => storageObject.storageID === storageID);
         let storageIndex = MTPDevice.storageInfoObjects.indexOf(storageObject);
         let fileObject = MTPDevice.storageInfoObjects[storageIndex].objectInfoObjects.find(fileObject => fileObject.fileID === fileID);
+        console.log(MTPDevice.storageInfoObjects[storageIndex].objectInfoObjects);
         let status = await MTPDevice.deleteFile(MTPDevice, storageObject, fileObject);
 
         if(status === true)

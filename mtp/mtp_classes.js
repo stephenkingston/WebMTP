@@ -234,7 +234,7 @@ class ObjectInfoDataset
 
 /* Device class for all device operations */
 
-class Device
+class MTPDevice
 {
     constructor()
     {
@@ -244,10 +244,19 @@ class Device
         this.sessionOpen = false;
         this.storageInfoObjects = new Array(0);
         this.objectInfoObjects = new Array(0);
+        this.transactionID = 0x01;
     }
 
-    getEndpoints()
+    async getEndpoints()
     {
+        /* Requesting Device Descriptor */
+        this.device.controlTransferIn({ requestType: 'standard',
+                                        recipient: 'device',
+                                        request: 0x06,
+                                        value: 0x100,
+                                        index: 0x00},12);
+
+
         this.endpointIn = 1;
         this.endpointOut = 1;
     }
@@ -300,10 +309,13 @@ class Device
         try
         {
             this.device = await navigator.usb.requestDevice({ filters: [{}]});
-            await this.device.open();
-            await this.device.selectConfiguration(1);
-            await this.device.claimInterface(0);
-            return true;
+            if (this.device !== undefined)
+            {
+                await this.device.open();
+                await this.device.selectConfiguration(1);
+                await this.device.claimInterface(0);
+                return true;
+            }
         }
         catch
         {
@@ -349,7 +361,7 @@ class Device
         let openSession = new mtp_container(5);
         openSession.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
         openSession.setOperation(MTP_OPEN_SESSION);
-        openSession.setTransactionID(0x01);
+        openSession.setTransactionID(MTPDevice.transactionID++);
         openSession.setParams(0, 1, 0, 0 , 0);
         openSession.pack();
         MTPDevice.device.transferOut(MTPDevice.endpointOut, openSession.container_array);
@@ -386,7 +398,7 @@ class Device
         let closeSessionRequest = new mtp_container(0);
         closeSessionRequest.setOperation(CLOSE_SESSION);
         closeSessionRequest.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
-        closeSessionRequest.setTransactionID(0x06);
+        closeSessionRequest.setTransactionID(MTPDevice.transactionID++);
         closeSessionRequest.pack()
         MTPDevice.device.transferOut(MTPDevice.endpointOut, closeSessionRequest.container_array);
 
@@ -443,7 +455,7 @@ class Device
         let getStorageIDS = new mtp_container(0);
         getStorageIDS.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
         getStorageIDS.setOperation(MTP_GET_STORAGE_IDS);
-        getStorageIDS.setTransactionID(0x02);
+        getStorageIDS.setTransactionID(MTPDevice.transactionID++);
         getStorageIDS.pack();
 
         MTPDevice.device.transferOut(MTPDevice.endpointOut, getStorageIDS.container_array);
@@ -490,7 +502,7 @@ class Device
         })
 
         let reqStorageInfo = new mtp_container(1);
-        reqStorageInfo.setTransactionID(0x09);
+        reqStorageInfo.setTransactionID(MTPDevice.transactionID++);
         reqStorageInfo.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
         reqStorageInfo.setOperation(MTP_GET_STORAGE_INFO);
         reqStorageInfo.setParams(storageObject.storageID, 0, 0, 0, 0);
@@ -550,7 +562,7 @@ class Device
 
         /* Get Storage IDS */
         let reqObjHandles = new mtp_container(3);
-        reqObjHandles.setTransactionID(0x02);
+        reqObjHandles.setTransactionID(MTPDevice.transactionID++);
         reqObjHandles.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
         reqObjHandles.setOperation(GET_OBJECT_HANDLES);
         reqObjHandles.setParams(storageObject, 0, GET_ROOT_OBJECTS,0, 0);
@@ -617,7 +629,7 @@ class Device
         let getObjInfo = new mtp_container(1);
         getObjInfo.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
         getObjInfo.setOperation(GET_OBJECT_INFO);
-        getObjInfo.setTransactionID(0x03);
+        getObjInfo.setTransactionID(MTPDevice.transactionID++);
         getObjInfo.setParams(fileObject.fileID, 0, 0, 0 , 0);
         getObjInfo.pack();
 
@@ -633,7 +645,6 @@ class Device
         {
             let firstObjectBuffer = new Uint8Array(0);
             let fileLength = null;
-            let fileBlob = null;
             let objectBuffer = new Array(0);
 
             results.then(async (receivedPackets) => {
@@ -654,22 +665,24 @@ class Device
                             progressBar.value = ((i/numberOfPacketsToBeReceived) * 100).toFixed(1);
                         })
                     }
-                    resolve([true, objectBuffer]);
+                    await MTPDevice.device.transferIn(MTPDevice.endpointIn, 512).then((result)=>{
+                        resolve([true, objectBuffer]);
+                    })
                 }
                 else
                 {
                     throw("Unhandled exception when initiating download.");
                 }
             })
-                .catch((err) => {
-                    console.log("Error getting file. " + err)
-                    resolve(false);
-                });
+                // .catch((err) => {
+                //     console.log("Error getting file. " + err)
+                //     resolve(false);
+                // });
         })
 
         /* Get ObjectInfo of all received handles */
         let reqObj = new mtp_container(1);
-        reqObj.setTransactionID(0x04);
+        reqObj.setTransactionID(MTPDevice.transactionID++);
         reqObj.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
         reqObj.setOperation(GET_OBJECT);
         reqObj.setParams(fileObject.fileID, 0, 0, 0, 0);
@@ -689,10 +702,8 @@ class Device
 
         let deletePromise = new Promise(function(resolve)
         {
-            console.log(result);
             result.then((receivedPacket) => {
                 resolve(true);
-                console.log(receivedPacket);
                 if ((receivedPacket[0][7] << 8 | receivedPacket[0][6]) === MTP_OK)
                 {
                     resolve("true");
@@ -707,7 +718,7 @@ class Device
         })
 
         let delete_packet = new mtp_container(1);
-        delete_packet.setTransactionID(0x07);
+        delete_packet.setTransactionID(MTPDevice.transactionID++);
         delete_packet.setOperation(MTP_DELETE_OBJECT);
         delete_packet.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
         delete_packet.setParams(MTPDevice.storageInfoObjects[storageIndex].objectInfoObjects[fileIndex].fileID, 0, 0, 0, 0);
@@ -745,7 +756,7 @@ class Device
             });
         let sendObjInfo = new mtp_container(2);
         sendObjInfo.setOperation(SEND_OBJECT_INFO);
-        sendObjInfo.setTransactionID(0x08);
+        sendObjInfo.setTransactionID(MTPDevice.transactionID++);
         sendObjInfo.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
         sendObjInfo.setParams(storageObject.storageID, PLACE_IN_ROOT, 0, 0, 0);
         sendObjInfo.pack();
@@ -756,7 +767,7 @@ class Device
 
         let sendObjInfo2 = new mtp_container(0);
         sendObjInfo2.setOperation(SEND_OBJECT_INFO);
-        sendObjInfo2.setTransactionID(0x08);
+        sendObjInfo2.setTransactionID(MTPDevice.transactionID);
         sendObjInfo2.setParams(0, 0, 0, 0, 0);
         sendObjInfo2.setTransactionType(CONTAINER_TYPE_DATA);
         sendObjInfo2.containerArrayLength = 12 + fileInfo.container_array.length + fileInfo.filename_array.length + fileInfo.dateModArray.length;
@@ -790,7 +801,7 @@ class Device
 
         let reqSendObject = new mtp_container(0);
         reqSendObject.setTransactionType(MTP_CONTAINER_TYPE_COMMAND);
-        reqSendObject.setTransactionID(0x10);
+        reqSendObject.setTransactionID(MTPDevice.transactionID++);
         reqSendObject.setOperation(SEND_OBJECT);
         reqSendObject.setParams(0, 0, 0, 0, 0);
         reqSendObject.pack();
@@ -815,7 +826,6 @@ class Device
                 }
             }
             let sliced = fileBytes.slice(i, end);
-            console.log(i, end, sliced);
             if (i === 0)
             {
                 await MTPDevice.device.transferOut(MTPDevice.endpointOut, new Uint8Array([...reqSendObject.container_array, ...sliced]));
