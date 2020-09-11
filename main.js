@@ -1,15 +1,26 @@
 const inputElement = document.getElementById("fileInput");
 const progressBar = document.getElementById("progress-bar");
 const transferPopup = document.getElementById("transferPopup");
-const transferPercentage = document.getElementById("transfer-percentage");
 const transferPopupClose = document.getElementById("close");
 const transferPopupHeading = document.getElementById("popup-process");
+const aboutPopupClose = document.getElementById("aboutPopup");
 const fileManager = document.getElementById("manager");
+const connectButton = document.getElementById("conButton");
+const disconnectButton = document.getElementById("disconnectButton");
+const uploadButton = document.getElementById("uploadButton");
+disconnectButton.disabled = true;
+uploadButton.disabled = true;
 
 /* Event listener to handle closure of upload/download popup windows */
 transferPopupClose.addEventListener("click", () => {
     document.getElementById("transferPopup").style.display = "none";
 });
+
+/* Event listener to handle closure of About window */
+aboutPopupClose.addEventListener("click", () => {
+    document.getElementById("aboutPopup").style.display = "none";
+});
+
 
 let activeFileID = 0;
 let activeStorageID = 0;
@@ -18,11 +29,18 @@ async function main()
 {
     let mtpDevice = await MTPDeviceInit();
 
-    let storageObjects = await getStorageIDS(mtpDevice);
-    activeStorageID = storageObjects[0].storageID;
-    let fileObjects = await getFileObjects(mtpDevice, activeStorageID)
+    if (mtpDevice !== null)
+    {
+        let storageObjects = await getStorageIDS(mtpDevice);
+        activeStorageID = storageObjects[0].storageID;
+        let fileObjects = await getFileObjects(mtpDevice, activeStorageID)
 
-    refreshUI(fileObjects, storageObjects[0]);
+        connectButton.disabled = true;
+        disconnectButton.disabled = false;
+        uploadButton.disabled = false;
+
+        refreshUI(fileObjects, storageObjects[0]);
+    }
 }
 
 function refreshUI(fileObjects, storageObject)
@@ -82,6 +100,10 @@ async function openAsText()
     /* Enable the user to press the close button for the popup */
     transferPopupClose.style.display = "block";
     transferPopupHeading.innerText = "Download Complete";
+
+    /* Show details of the opened file below the text-editor */
+    document.getElementById("file-name").innerText = fileObject.fileName;
+    document.getElementById("file-size").innerText = document.getElementById(fileObject.fileID).getElementsByClassName("fileSize")[0].innerText;
 }
 
 async function deleteFile()
@@ -96,7 +118,13 @@ async function deleteFile()
 
 async function closeDevice()
 {
-    await disconnect(device);
+    let result = await disconnect(device);
+    if (result === true)
+    {
+        connectButton.disabled = false;
+        disconnectButton.disabled = true;
+        uploadButton.disabled = true;
+    }
 }
 
 inputElement.oninput = function (event)
@@ -112,10 +140,20 @@ inputElement.oninput = function (event)
         {
             let arrayBuffer = reader.result;
             let bytes = new Uint8Array(arrayBuffer);
+
+            /* Show upload popup and initialize */
+            transferPopup.style.display = "block";
+            transferPopupClose.style.display = "none";
+            transferPopupHeading.innerText = "Uploading...";
+
             uploadFile(device, activeStorageID, file, bytes, progressBar).then(async () => {
                 let storageObjects = await getStorageIDS(device);
                 let fileObjects = await getFileObjects(device, activeStorageID);
                 refreshUI(fileObjects, storageObjects[0]);
+
+                /* Enable the user to press the close button for the popup */
+                transferPopupClose.style.display = "block";
+                transferPopupHeading.innerText = "Upload Complete";
             });
         }
     }
@@ -226,9 +264,4 @@ function showStorageInfo(storageObject)
     {
         storage_info_div.innerText = (freeSpace / (1024 * 1024)).toString() + " MB free" + " / " + (storageSize / (1024 * 1024)).toString() + " MB";
     }
-}
-
-async function endpoints()
-{
-    await device.getEndpoints();
 }

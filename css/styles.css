@@ -263,15 +263,15 @@ body
     animation-duration: 0.4s;
 }
 
-#close {
+#close, #close-about{
     color: #ffffff;
     float: right;
     font-size: 28px;
     font-weight: bold;
 }
 
-#close:hover,
-#close:focus {
+#close:hover, #close-about:hover,
+#close:hover, #close-about:focus {
     color: black;
     text-decoration: none;
     cursor: pointer;
@@ -312,9 +312,7 @@ body
 
 #aboutPopup {
     position: absolute;
-    top: 20vh;
     horiz-align: center;
-    left: 30vw;
     display: none;
 }
 

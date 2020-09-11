@@ -6,7 +6,7 @@ async function MTPDeviceInit()
 {
     device = new MTPDevice();
     let status = null;
-    // try
+    try
     {
         let success = true;
         let connected = false;
@@ -25,11 +25,11 @@ async function MTPDeviceInit()
             return device;
         }
     }
-    // catch(err)
-    // {
-    //     console.log("Error in USB connection. Error:" + err);
-    //     return null;
-    // }
+    catch(err)
+    {
+        console.log("Error in USB connection. Error:" + err);
+        return null;
+    }
 }
 
 async function downloadFile(MTPDevice, storageID, fileID, progressBar)
@@ -65,11 +65,13 @@ async function disconnect(MTPDevice)
         if (status === true)
         {
             console.log("Device session closed successfully.");
+            return true;
         }
     }
     catch(err)
     {
         console.log("Error disconnecting." + err);
+        return false;
     }
 }
 

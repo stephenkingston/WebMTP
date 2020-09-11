@@ -776,10 +776,10 @@ class MTPDevice
                     throw("Unhandled exception when initiating download.");
                 }
             })
-                // .catch((err) => {
-                //     console.log("Error getting file. " + err)
-                //     resolve(false);
-                // });
+                .catch((err) => {
+                    console.log("Error getting file. " + err)
+                    resolve(false);
+                });
         })
 
         /* Get ObjectInfo of all received handles */

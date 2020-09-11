@@ -5,6 +5,23 @@
     <title>WebMTP</title>
 </head>
 <body>
+
+<!--   About Popup  -->
+<div id="aboutPopup" class="popup">
+    <div class="download-popup">
+        <div class="popup-header">
+            <span id="close-about">&times;</span>
+            <h3>About</h3>
+        </div>
+        <div class="popup-body">
+            <p class="progress"> Authored by Stephen Kingston. View the README file on&nbsp<a href="https://github.com/stephenkingston/WebMTP" target="_blank"> GitHub.</a></p>
+        </div>
+        <div class="popup-footer">
+            <p></p>
+        </div>
+    </div>
+</div>
+
 <!--    File Upload or Download Popup -->
 <link rel="stylesheet" href="css/styles.css">
 <div id="transferPopup" class="popup">
@@ -14,7 +31,7 @@
             <h3 id="popup-process">Downloading...</h3>
         </div>
         <div class="popup-body">
-            <h3 class="progress" id="transfer-percentage">45%</h3>
+<!--            <h3 class="progress" id="transfer-percentage">45%</h3>-->
             <p class="progress"><progress id="progress-bar" value="0" max="100"></progress></p>
         </div>
         <div class="popup-footer" id="process-filename">
@@ -32,7 +49,8 @@
         <button id="uploadButton" class="button" value="Choose Files!" onclick="document.getElementById('fileInput').click();"> Upload file </button>
         <input id="fileInput" type="file" style="display:none;" />
         <div id="disconnectB"><button id="disconnectButton" class="button" onclick="closeDevice()"> Disconnect </button></div>
-        <div id="about" onclick="endpoints()">&iukcy;</div>
+        <div id="about" onclick="(function(){
+                                document.getElementById('aboutPopup').style.display = 'block';})()">&iukcy;</div>
     </div>
 </div>
 
@@ -49,17 +67,5 @@
 <script type="text/javascript" src="mtp/mtp_operations.js"></script>
 <script type="text/javascript" src="main.js"></script>
 
-<!--   About Popup  -->
-<div id="aboutPopup" class="popup about">
-    <div class="download-popup about-popup">
-        <div class="popup-header">
-            <span id="close-about">&times;</span>
-            <h3>About</h3>
-        </div>
-        <div class="popup-body">
-            <p class = "about-info">This was written by me.</p>
-        </div>
-    </div>
-</div>
 </body>
 </html>
