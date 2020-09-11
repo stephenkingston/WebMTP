@@ -232,33 +232,134 @@ class ObjectInfoDataset
     }
 }
 
+/* Configuration Descriptor class */
+
+class deviceDescriptor
+{
+    constructor(devDescriptorArray, configDescriptorArray)
+    {
+        this.bLength = devDescriptorArray[0];
+        this.bNumConfigurations = devDescriptorArray[17];
+        this.configDescriptors = new Array(0);
+        this.configDescriptorLength = 0;
+
+        this.lastSliceLength = 0;
+        console.log("Yes", this.bNumConfigurations)
+
+        /* Split configuration Descriptor Arrays */
+        for (let i = 0; i < this.bNumConfigurations; i++)
+        {
+            this.configDescriptorLength = configDescriptor[2 + this.configDescriptorLength];
+            let configDescriptor = configDescriptorArray.slice(this.lastSliceLength, this.configDescriptorLength + this.lastSliceLength)
+            this.lastSliceLength = this.configDescriptorLength;
+            console.log(configDescriptor);
+            this.configDescriptors.push(new configDescriptor(configDescriptor));
+        }
+    }
+}
+
+class configDescriptor
+{
+    constructor(configDescriptorArray)
+    {
+        this.bLength = configDescriptorArray[0];
+        this.wTotalLength = configDescriptorArray[2] | configDescriptorArray[3] << 8;
+        this.bNumInterfaces = configDescriptorArray[4];
+
+        this.interfaceDescriptors = new Array(0);
+
+
+        for (let i = 0; i < this.bNumInterfaces; i++)
+        {
+
+        }
+    }
+}
+
+class interfaceDescriptor
+{
+    constructor()
+    {
+
+    }
+}
+
+class endpointDescriptor
+{
+    constructor(endpointDescriptorArray)
+    {
+        this.bLength = endpointDescriptorArray[0];
+        this.bmAttributes = endpointDescriptorArray[3];
+        this.endPointAddr = endpointDescriptorArray[2];
+        this.endpointDescriptors = new Array(0);
+
+        this.endpointDescriptors.push(new endpointDescriptor(endpointDescriptorArray))
+    }
+}
+
 /* Device class for all device operations */
 
 class MTPDevice
 {
     constructor()
     {
-        this.endpointIn = 1;
-        this.endpointOut = 2;
+        this.endpointIn = 0;
+        this.endpointOut = 0;
         this.device = null;
         this.sessionOpen = false;
         this.storageInfoObjects = new Array(0);
         this.objectInfoObjects = new Array(0);
         this.transactionID = 0x01;
+        this.interfaceNumber = 0;
     }
 
     async getEndpoints()
     {
-        /* Requesting Device Descriptor */
-        this.device.controlTransferIn({ requestType: 'standard',
-                                        recipient: 'device',
-                                        request: 0x06,
-                                        value: 0x100,
-                                        index: 0x00},12);
+        // let deviceDescriptorArray = null;
+        // let configDescriptorArray = null;
+        //
+        // /* Requesting Device Descriptor */
+        // await this.device.controlTransferIn({ requestType: 'standard',
+        //                                 recipient: 'device',
+        //                                 request: 0x06,
+        //                                 value: 0x0100,
+        //                                 index: 0x00},30)
+        // .then((input) =>
+        // {
+        //     deviceDescriptorArray = new Uint8Array(input.data.buffer);
+        //     console.log(deviceDescriptorArray);
+        // })
+        //
+        // /* Requesting Configuration Descriptor */
+        // await this.device.controlTransferIn({ requestType: 'standard',
+        //     recipient: 'device',
+        //     request: 0x06,
+        //     value: 0x200,
+        //     index: 0x00},128)
+        //     .then((input2) => {
+        //         configDescriptor = new Uint8Array(input2.data.buffer);
+        //         console.log(configDescriptor);
+        //     });
+        //
+        // let descriptorObject = new deviceDescriptor(deviceDescriptor, configDescriptor);
 
 
-        this.endpointIn = 1;
-        this.endpointOut = 1;
+        var configurationInterfaces = this.device.configuration.interfaces;
+        let element = configurationInterfaces[0];
+
+        element.alternates.forEach(elementalt => {
+            this.interfaceNumber = element.interfaceNumber;
+                elementalt.endpoints.forEach(elementendpoint => {
+                    if (elementendpoint.direction === "out" && elementendpoint.type === "bulk") {
+                        this.endpointOut = elementendpoint.endpointNumber;
+                        console.log(this.endpointOut);
+                    }
+                    if (elementendpoint.direction==="in" && elementendpoint.type === "bulk") {
+                        this.endpointIn =elementendpoint.endpointNumber;
+                        console.log(this.endpointIn);
+                    }
+                })
+            })
     }
 
 
@@ -306,7 +407,7 @@ class MTPDevice
 
     async connectDevice(MTPDevice)
     {
-        try
+        // try
         {
             this.device = await navigator.usb.requestDevice({ filters: [{}]});
             if (this.device !== undefined)
@@ -314,14 +415,15 @@ class MTPDevice
                 await this.device.open();
                 await this.device.selectConfiguration(1);
                 await this.device.claimInterface(0);
+                await this.getEndpoints();
                 return true;
             }
         }
-        catch
-        {
-            console.log("Error connecting to target.");
-            return false;
-        }
+        // catch
+        // {
+        //     console.log("Error connecting to target.");
+        //     return false;
+        // }
     }
 
     async openSession(MTPDevice)

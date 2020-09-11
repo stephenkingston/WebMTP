@@ -227,3 +227,8 @@ function showStorageInfo(storageObject)
         storage_info_div.innerText = (freeSpace / (1024 * 1024)).toString() + " MB free" + " / " + (storageSize / (1024 * 1024)).toString() + " MB";
     }
 }
+
+async function endpoints()
+{
+    await device.getEndpoints();
+}

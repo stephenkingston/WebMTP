@@ -6,9 +6,9 @@ async function MTPDeviceInit()
 {
     device = new MTPDevice();
     let status = null;
-    try
+    // try
     {
-        let success = await device.getEndpoints();
+        let success = true;
         let connected = false;
         if (success)
         {
@@ -25,11 +25,11 @@ async function MTPDeviceInit()
             return device;
         }
     }
-    catch(err)
-    {
-        console.log("Error in USB connection. Error:" + err);
-        return null;
-    }
+    // catch(err)
+    // {
+    //     console.log("Error in USB connection. Error:" + err);
+    //     return null;
+    // }
 }
 
 async function downloadFile(MTPDevice, storageID, fileID, progressBar)
