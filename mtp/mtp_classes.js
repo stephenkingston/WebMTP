@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) 2020 Stephen Kingston
+ * 
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
+ */
+
 /* Container Type */
 const CONTAINER_TYPE_UNDEFINED = 0x0000;
 const MTP_CONTAINER_TYPE_COMMAND = 0x0001;

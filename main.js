@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) 2020 Stephen Kingston
+ * 
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
+ */
+
 const inputElement = document.getElementById("fileInput");
 const progressBar = document.getElementById("progress-bar");
 const transferPopup = document.getElementById("transferPopup");

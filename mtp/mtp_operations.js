@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) 2020 Stephen Kingston
+ * 
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
+ */
+
 /* This library file contains high-level functions derived from mtp_classes.mtp */
 let device = null;
 
